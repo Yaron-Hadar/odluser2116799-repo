@@ -1,0 +1,43 @@
+name: wiz-cli
+
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  wiz-cli-image-scan:
+    name: Wiz CLI Image Scan
+    runs-on: ubuntu-latest
+    env:
+      SCAN_PATH: .
+      TAG: odluser2116799-repo:${{ github.sha }}
+      POLICY: Default vulnerabilities policy
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Build the Docker image
+        run: cd "$SCAN_PATH" && docker build . --tag "$TAG"
+
+      - name: Download Wiz CLI
+        run: curl -fsSL -o wizcli https://downloads.wiz.io/v1/wizcli/latest/wizcli-linux-amd64 && chmod +x wizcli
+
+      - name: Run Wiz CLI docker image scan
+        env:
+          WIZ_CLIENT_ID: ${{ secrets.WIZ_CLIENT_ID }}
+          WIZ_CLIENT_SECRET: ${{ secrets.WIZ_CLIENT_SECRET }}
+        run: ./wizcli scan container-image "$TAG" --policy "$POLICY"
+
+      - name: Fetch digest of Docker image for Graph enrichment
+        env:
+          WIZ_CLIENT_ID: ${{ secrets.WIZ_CLIENT_ID }}
+          WIZ_CLIENT_SECRET: ${{ secrets.WIZ_CLIENT_SECRET }}
+        run: ./wizcli tag "$TAG"
